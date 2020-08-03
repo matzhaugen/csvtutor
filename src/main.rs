@@ -6,10 +6,10 @@ use std::process;
 use std::io;
 use std::vec::Vec;
 use std::collections::HashMap;
-use nalgebra::base::DMatrix;
+use nalgebra::base::{DMatrix, Vector};
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let mut prices: Vec<f32> = Vec::new();
+    
     let file = File::open("data/dataSang.csv")?;
     let mut rdr = csv::Reader::from_reader(file);
     let header = rdr.headers()?.clone();
@@ -34,15 +34,22 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    println!("This stock is in index #{:?}", stock_indeces);
-    // for result in rdr.records() {
-    //     let record = result?;
-    //     let number = &record[stock_index].parse::<f32>()?;
+    println!("These stocks is in index #{:?}", stock_indeces);
+    let mut prices: DMatrix<f32> = DMatrix::zeros(0, stock_indeces.len());
+    let mut day_prices: Vector<f32> = Vector::new(stock_indeces.len());
+    for (j, result) in rdr.records().enumerate() {
+        let record = result?;
+        for (stock, index) in stock_indeces.iter() {
+            let number = &record[index].parse::<f32>()?; 
+            day_prices.push(*number);
+            println!("{:?}", day_prices);
+        }
+        
     //     // println!("{:?}", number);
-    //     prices.push(*number);
-    // }
+        prices.insert_row(j, *day_prices);
+    }
     // let price_matrix = DMatrix::from_vec(prices.len(), 1, prices);
-    // println!("{:?}", price_matrix);
+    println!("{:?}", prices);
     Ok(())
 }
 
