@@ -6,7 +6,11 @@ use std::process;
 use std::io;
 use std::vec::Vec;
 use std::collections::HashMap;
-use nalgebra::base::{DMatrix, Vector};
+use nalgebra::base::{Matrix, Dynamic, VecStorage, DMatrix, Vector, U1};
+
+fn average(numbers: &[f32]) -> f32 {
+    numbers.iter().sum::<f32>() as f32 / numbers.len() as f32
+}
 
 fn run() -> Result<(), Box<dyn Error>> {
     
@@ -23,7 +27,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         trimmed_stocks.push(s.trim());
     }
     print!("You specified {:?}", trimmed_stocks);
-    let mut stock_index = 0;
+    
     let mut stock_indeces = HashMap::new();
     for (i, field) in header.iter().enumerate() {
         println!("{:?} {} vs. {:?}", &i, field, trimmed_stocks);
@@ -33,23 +37,46 @@ fn run() -> Result<(), Box<dyn Error>> {
             stock_indeces.insert(field.clone(), i);
         }
     }
+    let n_stocks = stock_indeces.len();
 
-    println!("These stocks is in index #{:?}", stock_indeces);
-    let mut prices: DMatrix<f32> = DMatrix::zeros(0, stock_indeces.len());
-    let mut day_prices: Vector<f32> = Vector::new(stock_indeces.len());
+    println!("These stocks are in index #{:?}", stock_indeces);
+    
+    let mut daily: Vec<Vec<f32>> = vec![Vec::new(); n_stocks];
+    let mut n_samples = 0;
     for (j, result) in rdr.records().enumerate() {
         let record = result?;
-        for (stock, index) in stock_indeces.iter() {
+        for (i, (_, &index)) in stock_indeces.iter().enumerate() {
             let number = &record[index].parse::<f32>()?; 
-            day_prices.push(*number);
-            println!("{:?}", day_prices);
+            daily[i].push(*number);
         }
-        
-    //     // println!("{:?}", number);
-        prices.insert_row(j, *day_prices);
+        n_samples = j;
+    } 
+    n_samples += 1;          
+    let mut avg = vec![0.0; n_stocks];
+    let mut centered = vec![vec![0.0; n_samples]; n_stocks];
+    
+    for i in 0..n_stocks {
+        avg[i] = average(&daily[i]);
     }
-    // let price_matrix = DMatrix::from_vec(prices.len(), 1, prices);
-    println!("{:?}", prices);
+    for i in 0..n_stocks {
+        for j in 0..n_samples {
+            centered[i][j] = daily[i][j] - avg[i]    
+        }
+    }
+    let mut cov = vec![vec![0.0; n_stocks]; n_stocks];
+
+    for i in 0..n_stocks {
+        for j in 0..n_stocks {
+            for k in 0..n_samples {
+                cov[i][j] = centered[i][k] * centered[j][k]
+            }
+        }
+    }
+
+    println!("samples: {:?}, stocks: {}, avg: {:?}", n_samples, n_stocks, avg);
+
+
+    println!("covariance: {:?}", cov);
     Ok(())
 }
 
