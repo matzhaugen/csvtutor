@@ -6,10 +6,19 @@ use std::process;
 use std::io;
 use std::vec::Vec;
 use std::collections::HashMap;
-use nalgebra::base::{Matrix, Dynamic, VecStorage, DMatrix, Vector, U1};
 
 fn average(numbers: &[f32]) -> f32 {
     numbers.iter().sum::<f32>() as f32 / numbers.len() as f32
+}
+
+fn get_returns_mut(prices: Vec<Vec<f32>>, n: usize, p: usize) -> Vec<Vec<f32>> {
+    let mut returns = vec![vec![0.0; n]; p];
+    for j in 0..p {
+        for i in 1..n {
+            returns[j][i] = (prices[j][i] - prices[j][i-1]) / prices[j][i-1];
+        }
+    }
+    returns
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
@@ -51,27 +60,31 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
         n_samples = j;
     } 
-    n_samples += 1;          
+    n_samples += 1;  
+    let returns = get_returns_mut(daily, n_samples, n_stocks) ;       
     let mut avg = vec![0.0; n_stocks];
-    let mut centered = vec![vec![0.0; n_samples]; n_stocks];
+    let mut centered = vec![vec![0.0; n_samples - 1]; n_stocks];
     
     for i in 0..n_stocks {
-        avg[i] = average(&daily[i]);
+        avg[i] = average(&returns[i]);
     }
     for i in 0..n_stocks {
-        for j in 0..n_samples {
-            centered[i][j] = daily[i][j] - avg[i]    
+        for j in 0..n_samples - 1 {
+            centered[i][j] = returns[i][j] - avg[i]    
         }
     }
     let mut cov = vec![vec![0.0; n_stocks]; n_stocks];
 
     for i in 0..n_stocks {
-        for j in 0..n_stocks {
-            for k in 0..n_samples {
-                cov[i][j] = centered[i][k] * centered[j][k]
+        for j in i..n_stocks {
+            for k in 0..n_samples-1 {
+                cov[i][j] += centered[i][k] * centered[j][k]
             }
+            cov[i][j] = cov[i][j] / (n_samples-1) as f32 
         }
     }
+
+    // get_weights(dates, prices);
 
     println!("samples: {:?}, stocks: {}, avg: {:?}", n_samples, n_stocks, avg);
 
